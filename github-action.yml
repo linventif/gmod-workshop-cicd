@@ -1,5 +1,4 @@
-name: Publish GMod Workshop
-
+name: Publish GMod Worksho                  DESCRIPTION: 'Test addon for automated deployment'                  DESCRIPTION: 'Test addon for automated deployment'
 on:
     push:
         branches: [main]
@@ -16,15 +15,15 @@ jobs:
               run: |
                   docker build -t gmod-uploader .
 
-            - name: Publish gmod-integration to Workshop
+            - name: Publish adn-test to Workshop
               env:
                   STEAM_USER: ${{ secrets.STEAM_USER }}
                   STEAM_PASS: ${{ secrets.STEAM_PASS }}
                   # Existing ID for update; set to 0 to create new
-                  PUBLISHED_FILE_ID: ${{ secrets.GMOD_INTEGRATION_PUBLISHED_FILE_ID }}
+                  PUBLISHED_FILE_ID: ${{ secrets.ADN_TEST_PUBLISHED_FILE_ID }}
                   # Path inside the container
-                  CONTENT_PATH: /data/gmod-integration
-                  TITLE: 'gmod-integration'
+                  CONTENT_PATH: /data/adn-test
+                  TITLE: 'adn-test'
                   DESCRIPTION: 'Continuous integration for Garry’s Mod'
                   VISIBILITY: '0' # 0=public,1=friends,2=private
               run: |
