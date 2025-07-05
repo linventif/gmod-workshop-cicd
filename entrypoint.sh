@@ -11,6 +11,9 @@ set -e
 STEAM_GUARD_ARG=""
 [ -n "$STEAM_GUARD" ] && STEAM_GUARD_ARG="$STEAM_GUARD"
 
+echo "[`date '+%F %T'`] Listing files in content path: ${CONTENT_PATH}"
+ls -al "${CONTENT_PATH}"
+
 # Generate the VDF pointing at your folder
 cat > /app/workshop_item.vdf <<EOF
 "workshopitem"
@@ -22,6 +25,7 @@ cat > /app/workshop_item.vdf <<EOF
     "visibility"      "${VISIBILITY:-0}"
     "title"           "${TITLE}"
     "description"     "${DESCRIPTION}"
+    "changenote"      "${CHANGE_NOTE}"
 }
 EOF
 
