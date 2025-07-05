@@ -1,0 +1,40 @@
+name: Publish GMod Workshop
+
+on:
+    push:
+        branches: [main]
+    workflow_dispatch:
+
+jobs:
+    publish:
+        runs-on: ubuntu-22.04
+        steps:
+            - name: Checkout repo
+              uses: actions/checkout@v3
+
+            - name: Build gmod-uploader image
+              run: |
+                  docker build -t gmod-uploader .
+
+            - name: Publish gmod-integration to Workshop
+              env:
+                  STEAM_USER: ${{ secrets.STEAM_USER }}
+                  STEAM_PASS: ${{ secrets.STEAM_PASS }}
+                  # Existing ID for update; set to 0 to create new
+                  PUBLISHED_FILE_ID: ${{ secrets.GMOD_INTEGRATION_PUBLISHED_FILE_ID }}
+                  # Path inside the container
+                  CONTENT_PATH: /data/gmod-integration
+                  TITLE: 'gmod-integration'
+                  DESCRIPTION: 'Continuous integration for Garry’s Mod'
+                  VISIBILITY: '0' # 0=public,1=friends,2=private
+              run: |
+                  docker run --rm \
+                    -e STEAM_USER \
+                    -e STEAM_PASS \
+                    -e CONTENT_PATH \
+                    -e TITLE \
+                    -e DESCRIPTION \
+                    -e VISIBILITY \
+                    -e PUBLISHED_FILE_ID \
+                    -v ${{ github.workspace }}/garrysmod/addons/gmod-integration:/data/gmod-integration \
+                    gmod-uploader
