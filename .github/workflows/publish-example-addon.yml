@@ -1,12 +1,6 @@
 name: Publish Example Addon
 
-on:
-    push:
-        branches:
-            - main
-        paths:
-            - 'example_addon/**'
-    workflow_dispatch:
+on: [push]
 
 permissions:
     contents: write
