@@ -1,1 +1,1 @@
-print("Hello from ADN test addon!")
+print("Hello from Example Addon!")
