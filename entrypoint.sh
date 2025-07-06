@@ -1,37 +1,71 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-: "${STEAM_USER:?Please set STEAM_USER}"
-: "${STEAM_PASS:?Please set STEAM_PASS}"
-: "${CONTENT_PATH:?Please set CONTENT_PATH (e.g. /data/adn-test)}"
-: "${TITLE:?Please set TITLE}"
-: "${DESCRIPTION:?Please set DESCRIPTION}"
+# Vérifs…
+: "${STEAM_USER:?}"
+: "${STEAM_PASS:?}"
+: "${STEAM_SHARED_SECRET:?}"
+: "${CONTENT_PATH:?}"
+: "${PREVIEW_FILE:?}"
+: "${PUBLISHED_FILE_ID:?}"
+: "${TITLE:?}"
+: "${DESCRIPTION:?}"
+: "${VISIBILITY:?}"
+# CHANGE_NOTE est optionnel
 
-# Optional Steam Guard:
-STEAM_GUARD_ARG=""
-[ -n "$STEAM_GUARD" ] && STEAM_GUARD_ARG="$STEAM_GUARD"
 
-echo "[`date '+%F %T'`] Listing files in content path: ${CONTENT_PATH}"
-ls -al "${CONTENT_PATH}"
+export STEAM_GUARD
+STEAM_GUARD=$(python3 /app/otp.py)
+echo "Using Steam Guard: $STEAM_GUARD"
 
-# Generate the VDF pointing at your folder
-cat > /app/workshop_item.vdf <<EOF
+# 1) Copie du contenu en écriture
+TMP_CONTENT=$(mktemp -d)
+echo "→ Copying content to temp dir: $TMP_CONTENT"
+cp -r "${CONTENT_PATH}/." "$TMP_CONTENT/"
+
+# 2) Override du addon.json dans le tmp
+cat > "$TMP_CONTENT/addon.json" <<EOF
+{
+  "title":  "${TITLE//\"/\\\"}",
+  "type":   "ServerContent",
+  "tags":   ["fun","roleplay"],
+  "ignore": ["*.git*","*.md","*.yml","*.yaml"]
+}
+EOF
+echo "→ Forced addon.json for packaging:"
+cat "$TMP_CONTENT/addon.json"
+echo
+
+# 3) Création du .gma
+GMA=/tmp/addon.gma
+echo "Creating GMA from '$TMP_CONTENT'…"
+gmad create -folder "$TMP_CONTENT" -out "$GMA"
+
+# 4) Préparation du VDF (via template + envsubst)
+cat > /tmp/workshop.vdf.tpl <<'VDF'
 "workshopitem"
 {
     "appid"           "4000"
-    "publishedfileid" "${PUBLISHED_FILE_ID:-0}"
-    "contentfolder"   "${CONTENT_PATH}"
-    "previewfile"     "${PREVIEW_FILE:-}"
-    "visibility"      "${VISIBILITY:-0}"
+    "publishedfileid" "${PUBLISHED_FILE_ID}"
+    "contentfolder"   "${GMA}"
+    "previewfile"     "${PREVIEW_FILE}"
+    "visibility"      "${VISIBILITY}"
     "title"           "${TITLE}"
     "description"     "${DESCRIPTION}"
     "changenote"      "${CHANGE_NOTE}"
 }
-EOF
+VDF
+export GMA=/tmp/addon.gma
+envsubst < /tmp/workshop.vdf.tpl > /tmp/workshop_item.vdf
 
-echo "[`date '+%F %T'`] Publishing to Workshop…"
-/steamcmd/steamcmd.sh +login "${STEAM_USER}" "${STEAM_PASS}" "${STEAM_GUARD_ARG}" \
-    +workshop_build_item /app/workshop_item.vdf \
-    +quit
+echo "Manifest ready:"
+cat /tmp/workshop_item.vdf
 
-echo "[`date '+%F %T'`] Done."
+# 5) Upload via SteamCMD
+echo "Publishing to Workshop…"
+/steamcmd/steamcmd.sh -console -debug \
+  +login "$STEAM_USER" "$STEAM_PASS" "$STEAM_GUARD" \
+  +workshop_build_item /tmp/workshop_item.vdf \
+  +quit
+
+echo "Done."

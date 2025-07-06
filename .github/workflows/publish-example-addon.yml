@@ -1,0 +1,65 @@
+name: Publish Example Addon
+
+on:
+    push:
+        branches:
+            - main
+        paths:
+            - 'example_addon/**'
+    workflow_dispatch:
+
+permissions:
+    contents: write
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Build gmod-uploader image
+              run: docker build -t gmod-uploader .
+
+            - name: Set up Python
+              uses: actions/setup-python@v4
+              with:
+                  python-version: '3.x'
+
+            - name: Install steampy
+              run: pip install steampy
+
+            - name: Generate Steam Guard OTP
+              # write STEAM_GUARD into the environment for later steps
+              run: |
+                  echo "STEAM_GUARD=$(python3 otp.py)" >> $GITHUB_ENV
+
+            - name: Publish example_addon to Workshop
+              env:
+                  STEAM_USER: ${{ secrets.STEAM_USER }}
+                  STEAM_PASS: ${{ secrets.STEAM_PASS }}
+                  STEAM_SHARED_SECRET: ${{ secrets.STEAM_SHARED_SECRET }}
+                  # this comes from the previous step via GITHUB_ENV
+                  STEAM_GUARD: ${{ env.STEAM_GUARD }}
+                  PUBLISHED_FILE_ID: ${{ secrets.EXAMPLE_ADDON_ID }}
+                  CONTENT_PATH: /data/example_addon
+                  PREVIEW_FILE: /data/example_addon/materials/example_addon/logo.png
+                  TITLE: 'Example Addon v1.0.0'
+                  DESCRIPTION: 'Continuous integration for Garry’s Mod example_addon'
+                  VISIBILITY: '0'
+                  CHANGE_NOTE: 'Automated CI/CD release'
+              run: |
+                  docker run --rm \
+                    -e STEAM_USER \
+                    -e STEAM_PASS \
+                    -e STEAM_SHARED_SECRET \
+                    -e STEAM_GUARD \
+                    -e PUBLISHED_FILE_ID \
+                    -e CONTENT_PATH \
+                    -e PREVIEW_FILE \
+                    -e TITLE \
+                    -e DESCRIPTION \
+                    -e VISIBILITY \
+                    -e CHANGE_NOTE \
+                    -v ${{ github.workspace }}/example_addon:/data/example_addon:ro \
+                    gmod-uploader
