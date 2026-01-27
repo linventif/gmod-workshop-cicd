@@ -28,7 +28,9 @@ RUN mkdir -p /steamcmd \
  && chmod +x steamcmd.sh
 
 # 4) Installer GMod DS pour gmad
+# Run steamcmd twice: first to initialize, then to actually install
 RUN mkdir -p /gmod_ds \
+ && /steamcmd/steamcmd.sh +quit \
  && /steamcmd/steamcmd.sh \
       +force_install_dir /gmod_ds \
       +login anonymous \
