@@ -29,8 +29,9 @@ RUN mkdir -p /steamcmd \
 
 # 4) Installer GMod DS pour gmad
 RUN mkdir -p /gmod_ds \
- && /steamcmd/steamcmd.sh +login anonymous \
+ && /steamcmd/steamcmd.sh \
       +force_install_dir /gmod_ds \
+      +login anonymous \
       +app_update 4020 validate \
       +quit \
  && ln -s /gmod_ds/bin/gmad_linux /usr/local/bin/gmad
