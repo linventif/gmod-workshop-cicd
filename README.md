@@ -10,14 +10,14 @@ A Docker-based CLI for building Garry’s Mod `.gma` addons and publishing them 
 
 ## Contents
 
--   [GMod Workshop Uploader](#gmod-workshop-uploader)
-    -   [Contents](#contents)
-    -   [Prerequisites](#prerequisites)
-    -   [Local Manual Upload](#local-manual-upload)
-    -   [GitHub Actions CI/CD](#github-actions-cicd)
-        -   [Example Workflow](#example-workflow)
-    -   [Configuration](#configuration)
-    -   [FAQ](#faq)
+- [GMod Workshop Uploader](#gmod-workshop-uploader)
+  - [Contents](#contents)
+  - [Prerequisites](#prerequisites)
+  - [Local Manual Upload](#local-manual-upload)
+  - [GitHub Actions CI/CD](#github-actions-cicd)
+    - [Example Workflow](#example-workflow)
+  - [Configuration](#configuration)
+  - [FAQ](#faq)
 
 ---
 
@@ -147,17 +147,17 @@ jobs:
 
 ## FAQ
 
-**Q: Why add `addon.json`?**  
+**Q: Why add `addon.json`?**
 A: GMod 13+ requires `addon.json` at the root to whitelist files and define metadata. The uploader will inject or override it if mounted read-only.
 
-**Q: Editor flags `${{ secrets.… }}` as invalid?**  
+**Q: Editor flags `${{ secrets.… }}` as invalid?**
 A: Move your workflow under `.github/workflows/` to load the official GitHub schema and eliminate warnings.
 
-**Q: How to handle version bumps automatically?**  
+**Q: How to handle version bumps automatically?**
 A: See our [Auto Release example](#) using Git tags, changelog generation, and multiple release targets (GitHub, GModStore, Workshop).
 
 ---
 
-Happy publishing!  
-For more on Workshop rules & folder whitelist, see Steam’s official guide:  
+Happy publishing!
+For more on Workshop rules & folder whitelist, see Steam’s official guide:
 https://developer.valvesoftware.com/wiki/Workshop_Addon_Updating
