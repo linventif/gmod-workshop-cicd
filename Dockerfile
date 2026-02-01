@@ -32,6 +32,7 @@ RUN mkdir -p /steamcmd \
 RUN mkdir -p /gmod_ds \
  && /steamcmd/steamcmd.sh +quit \
  && /steamcmd/steamcmd.sh \
+      +@sSteamCmdForcePlatformType linux \
       +force_install_dir /gmod_ds \
       +login anonymous \
       +app_update 4020 validate \
