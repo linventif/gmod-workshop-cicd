@@ -12,12 +12,8 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v4
 
-            - name: Log in to GitHub Container Registry
-              uses: docker/login-action@v3
-              with:
-                  registry: ghcr.io
-                  username: ${{ github.actor }}
-                  password: ${{ secrets.GITHUB_TOKEN }}
+            - name: Build gmod-uploader image
+              run: docker build -t gmod-uploader .
 
             - name: Set up Python
               uses: actions/setup-python@v4
@@ -60,4 +56,4 @@ jobs:
                     -e VISIBILITY \
                     -e CHANGE_NOTE \
                     -v ${{ github.workspace }}/example_addon:/data/example_addon:ro \
-                    ghcr.io/${{ github.repository }}:latest
+                    gmod-uploader
