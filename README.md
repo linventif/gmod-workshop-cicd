@@ -91,20 +91,52 @@ jobs:
 
 ------------------------------------------------------------------------
 
-## Configuration
+## Configuration Table
 
-  Variable              Description
-  --------------------- -------------------------------------
-  STEAM_USER            Steam username
-  STEAM_PASS            Steam password
-  STEAM_SHARED_SECRET   Steam TOTP shared secret
-  PUBLISHED_FILE_ID     Workshop item ID (0 = create new)
-  CONTENT_PATH          Path inside container to addon
-  PREVIEW_FILE          Path to preview image
-  TITLE                 Workshop title
-  DESCRIPTION           Workshop description
-  VISIBILITY            0=public, 1=friends-only, 2=private
-  CHANGE_NOTE           Workshop changelog text
+| Environment Variable      | Description                                   |
+|---------------------------|-----------------------------------------------|
+| `STEAM_USER`             | Your Steam username                           |
+| `STEAM_PASS`             | Your Steam password                           |
+| `STEAM_SHARED_SECRET`     | Your Steam shared secret for 2FA              |
+| `PUBLISHED_FILE_ID`      | The ID of the published file (0 for new)     |
+| `CONTENT_PATH`           | Path to the addon content                     |
+| `PREVIEW_FILE`           | Path to the preview image                     |
+| `TITLE`                  | Title of the addon                            |
+| `DESCRIPTION`            | Description of the addon                      |
+| `VISIBILITY`             | Visibility setting (0: private, 1: public)  |
+| `CHANGE_NOTE`            | Change note for the upload                   |
+
+### Getting `STEAM_SHARED_SECRET` with Steam Desktop Authenticator
+
+1. Download and install:
+   [https://github.com/Jessecar96/SteamDesktopAuthenticator](https://github.com/Jessecar96/SteamDesktopAuthenticator)
+2. Log into your Steam account in SDA.
+3. Register the **Steam Guard Mobile Authenticator** inside SDA.
+4. Open the SDA folder, then go to:
+
+  ```bash
+  maFiles/
+  ```
+
+5. Open the file named after your account:
+
+  ```bash
+  youraccount.maFile
+  ```
+
+6. Find the line:
+
+  ```json
+  "shared_secret": "xxxxxxxxxxxxxxxx"
+  ```
+
+7. Copy that value and use it as:
+
+  ```bash
+  STEAM_SHARED_SECRET=xxxxxxxxxxxxxxxx
+  ```
+
+> Treat this secret like a password. Do not share it.
 
 ------------------------------------------------------------------------
 
