@@ -3,56 +3,68 @@ description: 'Builds a .gma from your addon folder and publishes it to the Garry
 author: 'linventif'
 
 inputs:
-    steam_user:
-        description: 'Steam login username'
-        required: true
+  steam_user:
+    description: 'Steam login username'
+    required: true
 
-    steam_pass:
-        description: 'Steam login password'
-        required: true
+  steam_pass:
+    description: 'Steam login password'
+    required: true
 
-    steam_shared_secret:
-        description: 'Optional shared_secret for automatic Steam Guard code generation'
-        required: false
+  steam_shared_secret:
+    description: 'Optional shared_secret for automatic Steam Guard code generation'
+    required: false
 
-    steam_guard:
-        description: 'One-time Steam Guard code (only if you generate it manually)'
-        required: false
+  steam_guard:
+    description: 'One-time Steam Guard code (only if you generate it manually)'
+    required: false
 
-    published_file_id:
-        description: 'Workshop item ID (0 to create a new item)'
-        required: false
-        default: '0'
+  published_file_id:
+    description: 'Workshop item ID (0 to create a new item)'
+    required: false
+    default: '0'
 
-    content_path:
-        description: 'Path inside the container to your addon folder (e.g. `/data/example_addon`)'
-        required: true
+  content_path:
+    description: 'Path inside the container to your addon folder (e.g. `/data/example_addon`)'
+    required: true
 
-    preview_file:
-        description: 'Path inside the container to your preview image (optional)'
-        required: false
+  preview_file:
+    description: 'Path inside the container to your preview image (optional)'
+    required: false
 
-    title:
-        description: 'Workshop item title (e.g. “Example Addon v1.0.0”)'
-        required: true
+  title:
+    description: 'Workshop item title'
+    required: true
 
-    description:
-        description: 'Workshop item description'
-        required: true
+  description:
+    description: 'Workshop item description'
+    required: true
 
-    visibility:
-        description: '0=public, 1=friends, 2=private'
-        required: false
-        default: '0'
+  visibility:
+    description: '0=public, 1=friends, 2=private'
+    required: false
+    default: '0'
 
-    change_note:
-        description: 'Changenote for this update (optional)'
-        required: false
+  change_note:
+    description: 'Changenote for this update (optional)'
+    required: false
 
 runs:
-    using: 'docker'
-    image: 'Dockerfile'
+  using: 'docker'
+  image: 'docker://ghcr.io/linventif/gmod-workshop-cicd:latest'
+  env:
+    STEAM_USER: ${{ inputs.steam_user }}
+    STEAM_PASS: ${{ inputs.steam_pass }}
+    STEAM_SHARED_SECRET: ${{ inputs.steam_shared_secret }}
+    STEAM_GUARD: ${{ inputs.steam_guard }}
+    PUBLISHED_FILE_ID: ${{ inputs.published_file_id }}
+    CONTENT_PATH: ${{ inputs.content_path }}
+    PREVIEW_FILE: ${{ inputs.preview_file }}
+    TITLE: ${{ inputs.title }}
+    DESCRIPTION: ${{ inputs.description }}
+    VISIBILITY: ${{ inputs.visibility }}
+    CHANGE_NOTE: ${{ inputs.change_note }}
 
 branding:
-    icon: 'upload'
-    color: 'blue'
+  icon: 'upload'
+  color: 'blue'
