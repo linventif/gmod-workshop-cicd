@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Pull uploader image
-        run: docker pull ghcr.io/linventif/gmod-uploader:latest
+        run: docker pull ghcr.io/linventif/gmod-workshop-cicd:latest
 
       - name: Run uploader
         env:
@@ -44,4 +44,4 @@ jobs:
             -e VISIBILITY \
             -e CHANGE_NOTE \
             -v ${{ github.workspace }}/example_addon:/data/example_addon:ro \
-            ghcr.io/linventif/gmod-uploader:latest
+            ghcr.io/linventif/gmod-workshop-cicd:latest

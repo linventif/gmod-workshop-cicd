@@ -23,8 +23,8 @@ jobs:
 
       - name: Build image
         run: |
-          docker build -t ghcr.io/${{ github.repository_owner }}/gmod-uploader:latest .
+          docker build -t ghcr.io/${{ github.repository_owner }}/gmod-workshop-cicd:latest .
 
       - name: Push image
         run: |
-          docker push ghcr.io/${{ github.repository_owner }}/gmod-uploader:latest
+          docker push ghcr.io/${{ github.repository_owner }}/gmod-workshop-cicd:latest

@@ -42,7 +42,7 @@ export STEAM_SHARED_SECRET="your_steam_shared_secret"
 1. **Build the Docker image** (run from repo root):
 
     ```bash
-    docker build -t gmod-uploader .
+    docker build -t gmod-workshop-cicd .
     ```
 
 2. **Generate a Steam Guard code** (requires Python & `steampy`):
@@ -60,7 +60,7 @@ export STEAM_SHARED_SECRET="your_steam_shared_secret"
 
     ```bash
     export STEAM_GUARD=<code-from-step-2>
-    docker run --rm       -e STEAM_USER       -e STEAM_PASS       -e STEAM_SHARED_SECRET       -e STEAM_GUARD       -e PUBLISHED_FILE_ID="0"       -e CONTENT_PATH="/data/example_addon"       -e PREVIEW_FILE="/data/example_addon/materials/example_addon/logo.png"       -e TITLE="Example Addon v1.0.0"       -e DESCRIPTION="Continuous integration for Garry’s Mod example_addon"       -e VISIBILITY="0"       -e CHANGE_NOTE="Initial manual upload"       -v "$(pwd)/example_addon":/data/example_addon:ro       gmod-uploader
+    docker run --rm       -e STEAM_USER       -e STEAM_PASS       -e STEAM_SHARED_SECRET       -e STEAM_GUARD       -e PUBLISHED_FILE_ID="0"       -e CONTENT_PATH="/data/example_addon"       -e PREVIEW_FILE="/data/example_addon/materials/example_addon/logo.png"       -e TITLE="Example Addon v1.0.0"       -e DESCRIPTION="Continuous integration for Garry’s Mod example_addon"       -e VISIBILITY="0"       -e CHANGE_NOTE="Initial manual upload"       -v "$(pwd)/example_addon":/data/example_addon:ro       gmod-workshop-cicd
     ```
 
 -   `PUBLISHED_FILE_ID=0` creates a **new** Workshop item.
@@ -90,8 +90,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build gmod-uploader image
-        run: docker build -t gmod-uploader .
+      - name: Build gmod-workshop-cicd image
+        run: docker build -t gmod-workshop-cicd .
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -120,7 +120,7 @@ jobs:
           VISIBILITY:         '0'                      # 0=public,1=friends-only,2=private
           CHANGE_NOTE:        'Automated CI/CD release'
         run: |
-          docker run --rm             -e STEAM_USER             -e STEAM_PASS             -e STEAM_SHARED_SECRET             -e STEAM_GUARD             -e PUBLISHED_FILE_ID             -e CONTENT_PATH             -e PREVIEW_FILE             -e TITLE             -e DESCRIPTION             -e VISIBILITY             -e CHANGE_NOTE             -v ${{ github.workspace }}/example_addon:/data/example_addon:ro             gmod-uploader
+          docker run --rm             -e STEAM_USER             -e STEAM_PASS             -e STEAM_SHARED_SECRET             -e STEAM_GUARD             -e PUBLISHED_FILE_ID             -e CONTENT_PATH             -e PREVIEW_FILE             -e TITLE             -e DESCRIPTION             -e VISIBILITY             -e CHANGE_NOTE             -v ${{ github.workspace }}/example_addon:/data/example_addon:ro             gmod-workshop-cicd
 ```
 
 > **Tip:** Place this file under `.github/workflows/` to enable proper YAML validation in VS Code.
