@@ -56,7 +56,7 @@ if [[ "${MOCK_FAILURE:-false}" == true ]]; then
     echo 'ERROR! Failed to update workshop item'
     exit 0
 fi
-echo 'Success.'
+printf 'Committing update...\033[0mSuccess.\033[0mUnloading Steam API...OK\n'
 STUB
 export STEAM_USER=test-user STEAM_PASS=test-pass STEAM_GUARD=MANUAL
 export STEAM_SHARED_SECRET=intentionally-invalid

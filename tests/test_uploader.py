@@ -129,12 +129,29 @@ class MetadataTests(unittest.TestCase):
         write_manifest(self.temp.name, self.manifest)
         self.assertEqual(published_id(self.path, self.manifest), "12345")
 
+    def test_commit_success_accepts_concatenated_progress_shutdown_and_ansi(self):
+        write_manifest(self.temp.name, self.manifest)
+        for output in (
+            "Preparing update...\nUploading content...\nCommitting update...Success.Unloading Steam API...OK\n",
+            "Committing update...\x1b[0mSuccess.\x1b[0mUnloading Steam API...OK\n",
+            "Committing update...\nSuccess.\nUnloading Steam API...OK\n",
+            "Success.Unloading Steam API...OK\n",
+        ):
+            with self.subTest(output=output):
+                self.path.write_text(output)
+                self.assertEqual(published_id(self.path, self.manifest), "12345")
+
     def test_missing_confirmation_and_wrong_id_fail(self):
         for output, item_id in (
             ("ERROR! Failed to update workshop item", "12345"),
             ("Success. Created new item, PublishedFileId 12345\nERROR! Failed to update workshop item", "12345"),
+            ("Success.\nERROR! Failed to update workshop item (Failure)", "12345"),
+            ("Committing update...ERROR! Failed to update workshop item\nUnloading Steam API...OK", "12345"),
+            ("Committing update...Success. Created new item, PublishedFileId 12345", "12345"),
             ("Success.\n", "42"),
             ("Success.\n", "0"),
+            ("Committing update...Success.Unloading Steam API...OK", "42"),
+            ("Committing update...Success.Unloading Steam API...OK", "0"),
         ):
             with self.subTest(output=output, item_id=item_id):
                 self.path.write_text(output)

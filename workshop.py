@@ -45,9 +45,14 @@ def write_manifest(content_folder, path):
 
 def published_id(log_path, manifest_path):
     text = Path(log_path).read_text(encoding="utf-8", errors="replace")
-    # workshop_build_item prints a standalone "Success." and writes the ID back
-    # into its VDF. Creation alone is not confirmation that the upload succeeded.
-    if not re.search(r"^\s*Success\.\s*$", text, re.MULTILINE):
+    text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
+    # SteamCMD can concatenate progress, success and shutdown without newlines.
+    # Keep the standalone form for older clients; creation alone is insufficient.
+    success = r"Success\.(?=\s*(?:Unloading Steam API|$))"
+    committed = re.search(r"Committing update\.\.\.\s*" + success, text, re.MULTILINE)
+    standalone = re.search(r"^\s*" + success, text, re.MULTILINE)
+    failed = re.search(r"ERROR![^\r\n]*workshop item", text, re.IGNORECASE)
+    if failed or not (committed or standalone):
         raise ValueError("SteamCMD did not confirm publication; inspect its output above")
     manifest = Path(manifest_path).read_text(encoding="utf-8")
     matches = re.findall(r'^\s*"publishedfileid"\s+"(\d+)"\s*$', manifest, re.MULTILINE | re.IGNORECASE)

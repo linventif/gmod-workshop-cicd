@@ -199,6 +199,8 @@ time, GMA size, Steam connection/upload time and total uploader time.
 Use those measurements on your real addon to compare before and after; Steam
 authentication, network throughput and Workshop processing remain external costs.
 
-SteamCMD must both exit successfully and report a confirmed published file ID.
-A zero exit status alone is insufficient. Uploads are not automatically retried,
-which also avoids creating duplicate items after an ambiguous network failure.
+SteamCMD must both exit successfully and confirm the Workshop commit. The uploader
+also verifies the nonzero published file ID in the VDF, including that it matches
+the requested item on updates. A zero exit status alone is insufficient. Uploads
+are not automatically retried, which also avoids creating duplicate items after
+an ambiguous network failure.
