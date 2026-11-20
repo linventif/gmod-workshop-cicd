@@ -1,0 +1,6 @@
+{
+  "title": "Packaging smoke test",
+  "type": "tool",
+  "tags": ["build"],
+  "ignore": ["*.md"]
+}

@@ -1,71 +1,94 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
-# Vérifs…
-: "${STEAM_USER:?}"
-: "${STEAM_PASS:?}"
-: "${STEAM_SHARED_SECRET:?}"
-: "${CONTENT_PATH:?}"
-: "${PREVIEW_FILE:?}"
-: "${PUBLISHED_FILE_ID:?}"
-: "${TITLE:?}"
-: "${DESCRIPTION:?}"
-: "${VISIBILITY:?}"
-# CHANGE_NOTE est optionnel
+APP_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+TOTAL_START=$SECONDS
+: "${CONTENT_PATH:?Please set CONTENT_PATH}"
+: "${TITLE:?Please set TITLE}"
+: "${DESCRIPTION:?Please set DESCRIPTION}"
+export PUBLISHED_FILE_ID="${PUBLISHED_FILE_ID:-0}"
+export VISIBILITY="${VISIBILITY:-0}"
+export CHANGE_NOTE="${CHANGE_NOTE:-}"
+DRY_RUN="${DRY_RUN:-false}"
 
+fail() { echo "Error: $*" >&2; exit 1; }
+timing() { echo "Timing: $1 = $((SECONDS - $2))s"; }
 
-export STEAM_GUARD
-STEAM_GUARD=$(python3 /app/otp.py)
-echo "Using Steam Guard: $STEAM_GUARD"
+[[ -d "$CONTENT_PATH" ]] || fail "CONTENT_PATH must be a directory"
+[[ "$PUBLISHED_FILE_ID" =~ ^[0-9]+$ ]] || fail "PUBLISHED_FILE_ID must be numeric"
+[[ "$VISIBILITY" =~ ^[012]$ ]] || fail "VISIBILITY must be 0 (public), 1 (friends), or 2 (private)"
+[[ "$DRY_RUN" == true || "$DRY_RUN" == false ]] || fail "DRY_RUN must be true or false"
+if [[ -n "${PREVIEW_FILE:-}" ]]; then
+    [[ -f "$PREVIEW_FILE" ]] || fail "PREVIEW_FILE does not exist"
+elif [[ "$PUBLISHED_FILE_ID" =~ ^0+$ ]]; then
+    fail "PREVIEW_FILE is required when creating a new Workshop item"
+fi
+if [[ "$DRY_RUN" != true ]]; then
+    : "${STEAM_USER:?Please set STEAM_USER}"
+    : "${STEAM_PASS:?Please set STEAM_PASS}"
+    [[ -n "${STEAM_GUARD:-}" || -n "${STEAM_SHARED_SECRET:-}" ]] \
+        || fail "Set STEAM_GUARD or STEAM_SHARED_SECRET"
+fi
 
-# 1) Copie du contenu en écriture
-TMP_CONTENT=$(mktemp -d)
-echo "→ Copying content to temp dir: $TMP_CONTENT"
-cp -r "${CONTENT_PATH}/." "$TMP_CONTENT/"
+WORK_DIR=$(mktemp -d)
+trap 'rm -rf -- "$WORK_DIR"' EXIT
+mkdir "$WORK_DIR/content"
+GMA="$WORK_DIR/content/addon.gma"
+MANIFEST="$WORK_DIR/workshop_item.vdf"
 
-# 2) Override du addon.json dans le tmp
-cat > "$TMP_CONTENT/addon.json" <<EOF
-{
-  "title":  "${TITLE//\"/\\\"}",
-  "type":   "ServerContent",
-  "tags":   ["fun","roleplay"],
-  "ignore": ["*.git*","*.md","*.yml","*.yaml"]
-}
-EOF
-echo "→ Forced addon.json for packaging:"
-cat "$TMP_CONTENT/addon.json"
-echo
+STEP_START=$SECONDS
+if [[ -f "$CONTENT_PATH/addon.json" ]]; then
+    # gmad only reads its source folder, so a read-only mount is sufficient.
+    PACKAGE_SOURCE="$CONTENT_PATH"
+    echo "Using existing addon.json; packaging directly from source."
+else
+    PACKAGE_SOURCE="$WORK_DIR/source"
+    mkdir "$PACKAGE_SOURCE"
+    # Reflink when supported; fall back to a normal copy on other filesystems.
+    cp -a --reflink=auto "$CONTENT_PATH/." "$PACKAGE_SOURCE/"
+    python3 "$APP_DIR/workshop.py" addon "$PACKAGE_SOURCE/addon.json"
+    echo "Generated default addon.json in temporary content."
+fi
+timing "content preparation" "$STEP_START"
 
-# 3) Création du .gma
-GMA=/tmp/addon.gma
-echo "Creating GMA from '$TMP_CONTENT'…"
-gmad create -folder "$TMP_CONTENT" -out "$GMA"
+STEP_START=$SECONDS
+gmad create -folder "$PACKAGE_SOURCE" -out "$GMA" -quiet
+[[ -s "$GMA" ]] || fail "gmad did not produce a non-empty archive"
+timing "GMA packaging" "$STEP_START"
+echo "GMA size: $(stat -c %s "$GMA") bytes"
+python3 "$APP_DIR/workshop.py" manifest "$WORK_DIR/content" "$MANIFEST"
 
-# 4) Préparation du VDF (via template + envsubst)
-cat > /tmp/workshop.vdf.tpl <<'VDF'
-"workshopitem"
-{
-    "appid"           "4000"
-    "publishedfileid" "${PUBLISHED_FILE_ID}"
-    "contentfolder"   "${GMA}"
-    "previewfile"     "${PREVIEW_FILE}"
-    "visibility"      "${VISIBILITY}"
-    "title"           "${TITLE}"
-    "description"     "${DESCRIPTION}"
-    "changenote"      "${CHANGE_NOTE}"
-}
-VDF
-export GMA=/tmp/addon.gma
-envsubst < /tmp/workshop.vdf.tpl > /tmp/workshop_item.vdf
+if [[ "$DRY_RUN" == true ]]; then
+    echo "Dry run: archive and manifest validated; SteamCMD was not started."
+    timing "total" "$TOTAL_START"
+    exit 0
+fi
 
-echo "Manifest ready:"
-cat /tmp/workshop_item.vdf
+# Generate only after packaging. An explicitly supplied code takes precedence.
+if [[ -z "${STEAM_GUARD:-}" ]]; then
+    STEAM_GUARD=$(python3 "$APP_DIR/otp.py")
+fi
+if [[ "${GITHUB_ACTIONS:-}" == true ]]; then
+    echo "::add-mask::$STEAM_GUARD"
+fi
 
-# 5) Upload via SteamCMD
-echo "Publishing to Workshop…"
-/steamcmd/steamcmd.sh -console -debug \
-  +login "$STEAM_USER" "$STEAM_PASS" "$STEAM_GUARD" \
-  +workshop_build_item /tmp/workshop_item.vdf \
-  +quit
-
-echo "Done."
+STEP_START=$SECONDS
+echo "Connecting to Steam and publishing to Workshop…"
+# SteamCMD can return zero after a failed upload. Require its success message too.
+# Noninteractive mode prevents a missing/expired Guard code from hanging CI.
+STEAM_STATUS=0
+/steamcmd/steamcmd.sh \
+    +@ShutdownOnFailedCommand 1 \
+    +@NoPromptForPassword 1 \
+    +login "$STEAM_USER" "$STEAM_PASS" "$STEAM_GUARD" \
+    +workshop_build_item "$MANIFEST" \
+    +quit </dev/null 2>&1 | tee "$WORK_DIR/steamcmd.log" || STEAM_STATUS=$?
+timing "Steam connection and upload" "$STEP_START"
+[[ "$STEAM_STATUS" -eq 0 ]] || fail "SteamCMD exited with status $STEAM_STATUS"
+ITEM_ID=$(python3 "$APP_DIR/workshop.py" result "$WORK_DIR/steamcmd.log" "$MANIFEST")
+echo "Published Workshop item: $ITEM_ID"
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+    echo "published_file_id=$ITEM_ID" >> "$GITHUB_OUTPUT"
+fi
+timing "total" "$TOTAL_START"

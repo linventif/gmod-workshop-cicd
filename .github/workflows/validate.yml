@@ -1,0 +1,44 @@
+name: Validate uploader
+
+on:
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - entrypoint.sh
+      - otp.py
+      - workshop.py
+      - action.yml
+      - 'tests/**'
+      - 'example_addon/**'
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test serialization and Steam Guard
+        run: |
+          bash -n entrypoint.sh tests/smoke.sh
+          python3 -m unittest discover -s tests -v
+      - uses: docker/setup-buildx-action@v4
+      - name: Build test image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: uploader:test
+          cache-from: type=gha,scope=uploader
+          cache-to: type=gha,scope=uploader,mode=max
+          provenance: false
+      - name: Test packaging without contacting Steam
+        run: |
+          docker run --rm --network none \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            --entrypoint bash uploader:test /workspace/tests/smoke.sh

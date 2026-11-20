@@ -12,11 +12,11 @@ inputs:
     required: true
 
   steam_shared_secret:
-    description: 'Optional shared_secret for automatic Steam Guard code generation'
+    description: 'Shared secret for automatic Steam Guard generation; required unless steam_guard is set'
     required: false
 
   steam_guard:
-    description: 'One-time Steam Guard code (only if you generate it manually)'
+    description: 'Manual Steam Guard code; takes precedence over steam_shared_secret'
     required: false
 
   published_file_id:
@@ -25,11 +25,11 @@ inputs:
     default: '0'
 
   content_path:
-    description: 'Path inside the container to your addon folder (e.g. `/data/example_addon`)'
+    description: 'Addon directory in the GitHub workspace (e.g. example_addon); existing addon.json is preserved'
     required: true
 
   preview_file:
-    description: 'Path inside the container to your preview image (optional)'
+    description: 'Preview image path; required for creation, optional for updates'
     required: false
 
   title:
@@ -49,6 +49,15 @@ inputs:
     description: 'Changenote for this update (optional)'
     required: false
 
+  dry_run:
+    description: 'Build and validate without connecting to Steam'
+    required: false
+    default: 'false'
+
+outputs:
+  published_file_id:
+    description: 'Workshop item ID confirmed by SteamCMD'
+
 runs:
   using: 'docker'
   image: 'docker://ghcr.io/linventif/gmod-workshop-cicd:latest'
@@ -64,6 +73,7 @@ runs:
     DESCRIPTION: ${{ inputs.description }}
     VISIBILITY: ${{ inputs.visibility }}
     CHANGE_NOTE: ${{ inputs.change_note }}
+    DRY_RUN: ${{ inputs.dry_run }}
 
 branding:
   icon: 'upload'

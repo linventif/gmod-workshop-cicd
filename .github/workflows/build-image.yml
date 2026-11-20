@@ -1,30 +1,107 @@
 name: Build and publish uploader image
 
 on:
-  push:
-    paths:
-      - Dockerfile
-      - entrypoint.sh
-      - otp.py
-      - action.yml
+  workflow_call:
+    outputs:
+      image:
+        description: Immutable image reference for the publisher
+        value: ${{ jobs.build.outputs.image }}
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
+    timeout-minutes: 20
+    outputs:
+      image: ${{ steps.image.outputs.ref }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-      - name: Build image
+      - name: Validate uploader
         run: |
-          docker build -t ghcr.io/${{ github.repository_owner }}/gmod-workshop-cicd:latest .
+          bash -n entrypoint.sh tests/smoke.sh
+          python3 -m unittest discover -s tests -v
 
-      - name: Push image
+      - name: Set image name
+        id: meta
+        env:
+          SOURCE_HASH: ${{ hashFiles('Dockerfile', '.dockerignore', 'entrypoint.sh', 'otp.py', 'workshop.py') }}
         run: |
-          docker push ghcr.io/${{ github.repository_owner }}/gmod-workshop-cicd:latest
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "name=$image" >> "$GITHUB_OUTPUT"
+          echo "tag=$image:source-$SOURCE_HASH" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Look for an image built from the same sources
+        id: existing
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          if manifest=$(docker buildx imagetools inspect "$IMAGE_TAG"); then
+            digest=$(awk '/^Digest:/ { print $2; exit }' <<< "$manifest")
+            [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+            echo "digest=$digest" >> "$GITHUB_OUTPUT"
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build uploader image
+        if: steps.existing.outputs.found != 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: ${{ steps.meta.outputs.tag }}
+          cache-from: type=gha,scope=uploader
+          cache-to: type=gha,scope=uploader,mode=max
+          provenance: false
+
+      - name: Test packaging without contacting Steam
+        if: steps.existing.outputs.found != 'true'
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          docker run --rm --network none \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            --entrypoint bash "$IMAGE_TAG" /workspace/tests/smoke.sh
+          docker image inspect "$IMAGE_TAG" --format 'Image size: {{.Size}} bytes'
+
+      - name: Push tested image
+        if: steps.existing.outputs.found != 'true'
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.tag }}
+          IMAGE_NAME: ${{ steps.meta.outputs.name }}
+        run: |
+          docker push "$IMAGE_TAG"
+          if [[ "$GITHUB_REF" == refs/heads/main ]]; then
+            docker tag "$IMAGE_TAG" "$IMAGE_NAME:latest"
+            docker push "$IMAGE_NAME:latest"
+          fi
+
+      - name: Resolve immutable image reference
+        id: image
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.tag }}
+          IMAGE_NAME: ${{ steps.meta.outputs.name }}
+          EXISTING_DIGEST: ${{ steps.existing.outputs.digest }}
+        run: |
+          digest=$EXISTING_DIGEST
+          if [[ -z "$digest" ]]; then
+            manifest=$(docker buildx imagetools inspect "$IMAGE_TAG")
+            digest=$(awk '/^Digest:/ { print $2; exit }' <<< "$manifest")
+          fi
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          echo "ref=$IMAGE_NAME@$digest" >> "$GITHUB_OUTPUT"

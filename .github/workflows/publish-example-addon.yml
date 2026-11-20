@@ -3,36 +3,87 @@ name: Publish Example Addon
 on:
   push:
     branches: [main]
+    paths:
+      - 'example_addon/**'
+      - Dockerfile
+      - .dockerignore
+      - entrypoint.sh
+      - otp.py
+      - workshop.py
+      - action.yml
+      - 'tests/**'
+      - .github/workflows/build-image.yml
+      - .github/workflows/publish-example-addon.yml
+  workflow_dispatch:
 
-  workflow_run:
-    workflows: ["Build and publish uploader image"]
-    types:
-      - completed
+permissions:
+  contents: read
+  packages: write
+
+# Keep an upload already in progress intact. Use a distinct group for each addon.
+concurrency:
+  group: workshop-example-addon
+  cancel-in-progress: false
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
+  image:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/build-image.yml
 
+  publish:
+    needs: image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@v4
 
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Pull uploader image
-        run: docker pull ghcr.io/linventif/gmod-workshop-cicd:latest
+        env:
+          UPLOADER_IMAGE: ${{ needs.image.outputs.image }}
+        run: |
+          started=$SECONDS
+          docker pull "$UPLOADER_IMAGE"
+          echo "Timing: image pull = $((SECONDS - started))s"
+          docker image inspect "$UPLOADER_IMAGE" --format 'Image size: {{.Size}} bytes'
+
+      - name: Validate the selected image offline
+        env:
+          UPLOADER_IMAGE: ${{ needs.image.outputs.image }}
+        run: |
+          docker run --rm --network none \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            --entrypoint bash "$UPLOADER_IMAGE" /workspace/tests/smoke.sh
 
       - name: Run uploader
         env:
+          UPLOADER_IMAGE: ${{ needs.image.outputs.image }}
           STEAM_USER: ${{ secrets.STEAM_USER }}
           STEAM_PASS: ${{ secrets.STEAM_PASS }}
           STEAM_SHARED_SECRET: ${{ secrets.STEAM_SHARED_SECRET }}
           PUBLISHED_FILE_ID: ${{ secrets.EXAMPLE_ADDON_ID }}
           CONTENT_PATH: /data/example_addon
           PREVIEW_FILE: /data/example_addon/materials/example_addon/logo.png
-          TITLE: "Example Addon"
-          DESCRIPTION: "Automated CI release"
-          VISIBILITY: "0"
-          CHANGE_NOTE: "Automated build"
+          TITLE: Example Addon
+          DESCRIPTION: Automated CI release
+          VISIBILITY: '0'
+          CHANGE_NOTE: 'Automated build ${{ github.sha }}'
         run: |
+          # A missing secret must never silently create a new item on every push.
+          [[ "$PUBLISHED_FILE_ID" =~ ^[0-9]+$ && ! "$PUBLISHED_FILE_ID" =~ ^0+$ ]] || {
+            echo "Set EXAMPLE_ADDON_ID to an existing Workshop item ID." >&2
+            exit 1
+          }
           docker run --rm \
+            -e GITHUB_ACTIONS=true \
             -e STEAM_USER \
             -e STEAM_PASS \
             -e STEAM_SHARED_SECRET \
@@ -43,5 +94,5 @@ jobs:
             -e DESCRIPTION \
             -e VISIBILITY \
             -e CHANGE_NOTE \
-            -v ${{ github.workspace }}/example_addon:/data/example_addon:ro \
-            ghcr.io/linventif/gmod-workshop-cicd:latest
+            -v "$GITHUB_WORKSPACE/example_addon:/data/example_addon:ro" \
+            "$UPLOADER_IMAGE"

@@ -2,3 +2,5 @@
 .env
 gmod-integration
 extracted
+__pycache__/
+*.py[cod]

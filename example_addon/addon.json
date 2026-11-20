@@ -1,0 +1,6 @@
+{
+  "title": "Example Addon",
+  "type": "ServerContent",
+  "tags": ["fun", "roleplay"],
+  "ignore": ["*.git*", "*.md", "*.yml", "*.yaml"]
+}
