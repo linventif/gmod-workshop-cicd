@@ -1,13 +1,15 @@
 import base64
+from contextlib import redirect_stderr
+import io
 import json
 import os
 from pathlib import Path
 import re
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from otp import generate_one_time_code
+from otp import generate_fresh_code, generate_one_time_code, steam_clock
 from workshop import published_id, vdf_quote, write_addon, write_manifest
 
 
@@ -30,6 +32,53 @@ class SteamGuardTests(unittest.TestCase):
         for secret in ("", "not base64!", "YQ=="):
             with self.subTest(secret=secret), self.assertRaises(ValueError):
                 generate_one_time_code(secret, 59)
+
+    def test_steam_clock_queries_without_credentials(self):
+        response = Mock()
+        response.read.return_value = b'{"response":{"server_time":"1000"}}'
+        opened = Mock()
+        opened.__enter__ = Mock(return_value=response)
+        opened.__exit__ = Mock(return_value=False)
+        with patch("otp.urlopen", return_value=opened) as request, \
+                patch("otp.time.monotonic", side_effect=[10, 12]), \
+                patch("otp.time.time", return_value=900):
+            self.assertEqual(steam_clock(), (1001, 12, 99))
+        call = request.call_args
+        self.assertEqual(call.kwargs["timeout"], 5)
+        self.assertEqual(call.args[0].get_method(), "POST")
+        self.assertEqual(call.args[0].data, b"")
+
+    def test_steam_clock_fails_clearly_if_query_is_unavailable(self):
+        with patch("otp.urlopen", side_effect=OSError("offline")), \
+                self.assertRaisesRegex(ValueError, "Unable to query Steam time"):
+            steam_clock()
+
+    def test_fresh_code_uses_server_time_despite_local_clock_drift(self):
+        secret = base64.b64encode(b"12345678901234567890").decode()
+        diagnostics = io.StringIO()
+        with patch("otp.steam_clock", return_value=(120, 10, -3600)), \
+                patch("otp.time.monotonic", return_value=10), \
+                patch("otp.time.time", side_effect=AssertionError("Local clock must not be used")), \
+                redirect_stderr(diagnostics):
+            code = generate_fresh_code(secret)
+        self.assertEqual(code, generate_one_time_code(secret, 120))
+        self.assertIn("offset=-3600.0s", diagnostics.getvalue())
+        self.assertNotIn(code, diagnostics.getvalue())
+        self.assertNotIn(secret, diagnostics.getvalue())
+
+    def test_fresh_code_waits_for_next_window_when_validity_is_short(self):
+        secret = base64.b64encode(b"12345678901234567890").decode()
+        with patch("otp.steam_clock", return_value=(148, 10, 0)), \
+                patch("otp.time.monotonic", side_effect=[10, 12.1]), \
+                patch("otp.time.sleep") as sleep, redirect_stderr(io.StringIO()):
+            code = generate_fresh_code(secret)
+        sleep.assert_called_once_with(2.1)
+        self.assertEqual(code, generate_one_time_code(secret, 150.1))
+
+    def test_invalid_secret_never_queries_steam(self):
+        with patch("otp.steam_clock") as clock, self.assertRaises(ValueError):
+            generate_fresh_code("invalid")
+        clock.assert_not_called()
 
 
 class MetadataTests(unittest.TestCase):

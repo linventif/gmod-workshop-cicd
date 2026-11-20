@@ -4,6 +4,13 @@ set -euo pipefail
 LOG=$(mktemp)
 trap 'rm -f -- "$LOG"' EXIT
 
+python3 - <<'PY'
+from otp import steam_clock
+
+_, _, offset = steam_clock()
+print(f"Steam time API reachable; clock offset={offset:+.1f}s")
+PY
+
 timeout 60s /steamcmd/steamcmd.sh \
     +@ShutdownOnFailedCommand 1 \
     +@NoPromptForPassword 1 \

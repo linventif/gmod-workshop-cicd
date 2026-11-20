@@ -67,7 +67,10 @@ fi
 
 # Generate only after packaging. An explicitly supplied code takes precedence.
 if [[ -z "${STEAM_GUARD:-}" ]]; then
+    echo "Steam Guard source: automatic code from shared secret."
     STEAM_GUARD=$(python3 "$APP_DIR/otp.py")
+else
+    echo "Steam Guard source: manually supplied code."
 fi
 if [[ "${GITHUB_ACTIONS:-}" == true ]]; then
     echo "::add-mask::$STEAM_GUARD"

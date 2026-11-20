@@ -116,8 +116,10 @@ An omitted preview on an update preserves the existing Workshop preview.
 
 To supply a manual code, use `-e STEAM_GUARD` after exporting it. A supplied manual
 code takes precedence over `STEAM_SHARED_SECRET`. Automatic codes are generated
-after packaging, immediately before SteamCMD, and are never explicitly printed.
-The runner clock must be correct for automatic codes.
+after packaging, immediately before SteamCMD, using Steam's public server time.
+The generator waits for a new 30-second window if less than 15 seconds remain.
+Only clock offset and remaining validity are logged, never the code or secret.
+If the Steam time endpoint is unavailable, generation stops with an explicit error.
 
 ## Configuration
 
