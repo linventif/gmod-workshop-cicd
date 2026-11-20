@@ -23,7 +23,7 @@ jobs:
 
       - name: Validate uploader
         run: |
-          bash -n entrypoint.sh tests/smoke.sh
+          bash -n entrypoint.sh tests/smoke.sh tests/steam-network.sh
           python3 -m unittest discover -s tests -v
 
       - name: Set image name
@@ -78,6 +78,15 @@ jobs:
             -v "$GITHUB_WORKSPACE:/workspace:ro" \
             --entrypoint bash "$IMAGE_TAG" /workspace/tests/smoke.sh
           docker image inspect "$IMAGE_TAG" --format 'Image size: {{.Size}} bytes'
+
+      - name: Verify Steam connectivity without credentials
+        if: steps.existing.outputs.found != 'true'
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            --entrypoint bash "$IMAGE_TAG" /workspace/tests/steam-network.sh
 
       - name: Push tested image
         if: steps.existing.outputs.found != 'true'

@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Test serialization and Steam Guard
         run: |
-          bash -n entrypoint.sh tests/smoke.sh
+          bash -n entrypoint.sh tests/smoke.sh tests/steam-network.sh
           python3 -m unittest discover -s tests -v
       - uses: docker/setup-buildx-action@v4
       - name: Build test image
@@ -42,3 +42,9 @@ jobs:
           docker run --rm --network none \
             -v "$GITHUB_WORKSPACE:/workspace:ro" \
             --entrypoint bash uploader:test /workspace/tests/smoke.sh
+
+      - name: Verify Steam connectivity without credentials
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            --entrypoint bash uploader:test /workspace/tests/steam-network.sh

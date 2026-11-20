@@ -8,6 +8,14 @@ export TITLE='Example "Addon"'
 export DESCRIPTION=$'Test description\nwith "quotes" and \\slashes'
 export PUBLISHED_FILE_ID=12345
 
+# Verify the real launcher selects the native client before replacing it below.
+timeout 30s /steamcmd/steamcmd.sh +quit > "$WORK/startup.log" 2>&1
+if [[ "$(cat "$WORK/startup.log")" != *'/steamcmd/linux64/steamcmd'* ]]; then
+    cat "$WORK/startup.log" >&2
+    echo 'SteamCMD did not start its 64-bit client' >&2
+    exit 1
+fi
+
 # Exercise the production entrypoint against a read-only source, without credentials.
 DRY_RUN=true bash /app/entrypoint.sh
 

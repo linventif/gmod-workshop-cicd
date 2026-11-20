@@ -11,6 +11,9 @@ Linux / amd64 only.
   Only the resulting binary enters the runtime image.
 - SteamCMD is initialized while building the image. It can still check for updates
   when started, but each publication no longer starts with an uninitialized installer.
+- The runtime selects SteamCMD's native 64-bit client using the official launcher's
+  `STEAM_PLATFORM=linux64` setting. This avoids the 32-bit `socketcall` failure on
+  affected Docker runners while retaining Docker's default security settings.
 - GitHub Actions reuses an image tagged with a hash of the Dockerfile and runtime
   sources. An addon-only change skips image construction entirely.
 - New images use a persistent
@@ -63,7 +66,9 @@ different groups for different items.
 
 The separate [PR validation workflow](.github/workflows/validate.yml) runs unit tests,
 builds the image and tests real GMA creation/extraction without Steam credentials.
-It does not publish an image or a Workshop item.
+Both PR validation and image builds check a real anonymous Steam connection.
+New images must pass this check before being pushed to GHCR. PR validation does
+not publish an image or a Workshop item.
 
 Smoke tests use a tiny fixture addon, so they do not repeatedly package your real
 content. The real addon is packaged once per publication and validated by gmad.
@@ -163,6 +168,19 @@ docker run --rm --network none \
   -v "$PWD:/workspace:ro" \
   --entrypoint bash "$UPLOADER_IMAGE" /workspace/tests/smoke.sh
 ```
+
+Check Steam connectivity without credentials or publishing anything:
+
+```bash
+docker run --rm \
+  -v "$PWD:/workspace:ro" \
+  --entrypoint bash "$UPLOADER_IMAGE" /workspace/tests/steam-network.sh
+```
+
+The check requires outbound access to Steam and times out after 60 seconds.
+`CreateBoundSocket ... (38)` followed by `No Connection` can indicate the
+[32-bit Docker runner issue](https://github.com/actions/runner-images/issues/14790).
+The startup log should show `/steamcmd/linux64/steamcmd` in the updated image.
 
 Or validate your own addon with `DRY_RUN=true`; Steam credentials are unnecessary:
 

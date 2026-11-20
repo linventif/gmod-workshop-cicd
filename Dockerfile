@@ -38,8 +38,12 @@ RUN apt-get update \
 RUN /steamcmd/steamcmd.sh +quit
 
 FROM runtime-base AS runtime
+# The official launcher defaults to linux32, whose socketcall networking is
+# blocked by Docker 29.4.2 on GitHub's Ubuntu 26.04 runners.
+ENV STEAM_PLATFORM=linux64
 COPY --from=gmad-build /build/gmad/bin/gmad_linux /usr/local/bin/gmad
 COPY --from=steamcmd-build /steamcmd /steamcmd
+RUN test -x /steamcmd/linux64/steamcmd
 WORKDIR /app
 COPY entrypoint.sh otp.py workshop.py ./
 ENTRYPOINT ["bash", "/app/entrypoint.sh"]
